@@ -20,20 +20,25 @@ public class EmployeeConnection implements Runnable {
 	
 	// consider adding host and port number to parameters for constructor, not implemented for testing ATM.
 	EmployeeConnection(String host, int port) throws IOException {
+		System.out.println("Creating EmployeeConnection.");
 		try {
 			this.socket = new Socket(host, port);
+			if (socket != null) {
+				System.out.println("Created successful socket connection.");
+			}
 			this.sc = new Scanner(System.in);
 			this.oos = new ObjectOutputStream(this.socket.getOutputStream());
 			this.oos.flush();
 			this.ois = new ObjectInputStream(this.socket.getInputStream());
 			this.msg = new Message("login", null, "login"); // Initialize the msg object to begin login handshake 
+			oos.writeObject(this.msg);
 			this.msg = (Message) ois.readObject(); // Read return object
 			// verify handshake is complete
-			if ((!msg.getType().equalsIgnoreCase("text") && msg.getStatus().equalsIgnoreCase("success"))) {
+			if ((!msg.getType().equalsIgnoreCase("login") && msg.getStatus().equalsIgnoreCase("success"))) {
 				throw new IOException("Login failed: " + msg.getText());
 			}
 			this.type = "text";
-			System.out.println("Server: " + text);
+			System.out.println("Successful creationg of EmployeeConnection Object.");
 		} catch (ClassNotFoundException e) {
 //			e.printStackTrace();
 			throw new IOException("Server response invalid.", e);
@@ -43,9 +48,13 @@ public class EmployeeConnection implements Runnable {
 	@Override
 	public void run() {
 		try {
+			// Listens for incoming messages
 			while (running) {
 				this.msg = (Message) ois.readObject();
-				System.out.println("Returned message: " + this.msg.getText());
+				String receivedText = this.msg.getText();
+				
+				System.out.println("Returned message: " + receivedText);
+				EmployeeGUI.appendServerMessage("Server: " + receivedText + "\n");
 //				if (type.equalsIgnoreCase("text") && !input.equalsIgnoreCase("logout")) {
 //					oos.writeObject(new Message(type, status, input));
 //					msg = (Message) ois.readObject();
@@ -88,8 +97,11 @@ public class EmployeeConnection implements Runnable {
 		}
 		try {
 			// Send message through function
-			this.oos.writeObject(msg);
-			this.oos.flush();
+			if (msg != null && !msg.getText().isEmpty()) {
+				System.out.println("Sending message: " + this.msg.getText());
+				this.oos.writeObject(msg);
+				this.oos.flush();
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

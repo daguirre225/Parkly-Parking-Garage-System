@@ -1,0 +1,4 @@
+employee,password
+manager,pa$$word
+user1,PASSWORD
+user2,valid

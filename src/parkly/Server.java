@@ -20,7 +20,7 @@ public class Server {
 				System.out.println("Server started. Waiting for incoming connections...");
 				Socket employee = server.accept(); // accept incoming requests from employee computer
 				increment(); // increment employee count
-				System.out.println("New employee connected: ID( " + employeeCount + ") " + employee.getInetAddress().getHostAddress()); // for testing
+				System.out.println("New employee connected: ID(" + employeeCount + ") " + employee.getInetAddress().getHostAddress()); // for testing
 				
 				EmployeeHandler employeeSocket = new EmployeeHandler(employeeCount, employee); // create handler for newly connected employee
 				
@@ -78,17 +78,20 @@ public class Server {
 					this.status = msg.getStatus();
 					this.text = msg.getText();
 					if (this.type.equalsIgnoreCase("text") && this.status.equalsIgnoreCase("success")) {
+						System.out.println("Successfully received message: " + this.text);
 						oos.writeObject(new Message(this.type, this.status, this.text.toUpperCase().trim()));
 					} else if (this.type.equalsIgnoreCase("logout") || this.text.equalsIgnoreCase("logout")) {
 						this.status = "logout";
 						System.out.println("Logout received: " + msg.getText());
 						oos.writeObject(new Message("success", this.status, "CONNECTION CLOSED!"));
 						break;
-					} {
-						oos.writeObject(new Message(this.type, this.status, "Error, could not capitolize string " + this.text));
+					} else {
+						oos.writeObject(new Message(this.type, this.status, "Error, could not capitolize string: " + this.text));
 					}
 				}
 				System.out.println("End of chat.");
+			} catch (EOFException e) {
+				System.out.println("Employee " + employeeID + " disconnected abruptly (EOF).");
 			} catch (IOException e) {
 				e.printStackTrace();
 				System.out.println("Employee " + employeeID + " disconnected: " + e.getMessage());
