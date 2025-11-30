@@ -15,6 +15,7 @@ public class EmployeeService {
 	// GUI uses this to send data
 	public static void sendMessage(Message msg) {
 		if (socket != null) {
+			System.out.println("EmployeeService.sendMessage: Sending msg: " + msg.getType() + " | " + msg.getStatus() + " | " + msg.getText());
 			socket.sendMessage(msg);
 		} else {
 			System.err.println("EmployeeService: Not connected.");

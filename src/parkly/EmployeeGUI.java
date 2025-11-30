@@ -63,8 +63,8 @@ public class EmployeeGUI {
 				Message msgToSend = new Message("text", "success", inputToSend);
 				System.out.println("Message being sent: " + msgToSend.getType() + " | " + msgToSend.getStatus() + " | " + msgToSend.getText());
 //				socket.sendMessage(msgToSend);
-				EmployeeService.sendMessage(msgToSend);
 				appendServerMessage("You: " + inputToSend + "\n");
+				EmployeeService.sendMessage(msgToSend);
 				inputText.setText("");
 				}
 			}

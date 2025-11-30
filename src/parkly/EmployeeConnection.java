@@ -31,20 +31,21 @@ public class EmployeeConnection implements Runnable {
 			this.oos.flush();
 			this.ois = new ObjectInputStream(this.socket.getInputStream());
 			this.msg = new Message("login", null, "login"); // Initialize the msg object to begin login handshake 
-			oos.writeObject(this.msg);
-			this.msg = (Message) ois.readObject(); // Read return object
+			oos.writeObject(this.msg); // Send login message to server
+			this.msg = (Message) ois.readObject(); // Read servers response: login | success | CONNECTION ESTABLISHED!
 			// verify handshake is complete
 			if ((!msg.getType().equalsIgnoreCase("login") && msg.getStatus().equalsIgnoreCase("success"))) {
 				throw new IOException("Login failed: " + msg.getText());
 			}
 			this.type = "text";
-			System.out.println("Successful creationg of EmployeeConnection Object.");
+			System.out.println("Successful creation of EmployeeConnection Object.");
 		} catch (ClassNotFoundException e) {
 //			e.printStackTrace();
 			throw new IOException("Server response invalid.", e);
 		}
 	}
 	
+	// Listens to incoming messages from the server here
 	@Override
 	public void run() {
 		try {
@@ -90,6 +91,7 @@ public class EmployeeConnection implements Runnable {
 	public Message getMessage() {
 		return this.msg;
 	}
+	
 	public void sendMessage(Message msg) {
 		if (oos == null || socket.isClosed()) {
 			System.err.println("Connection is closed. Cannot send message.");
@@ -98,7 +100,7 @@ public class EmployeeConnection implements Runnable {
 		try {
 			// Send message through function
 			if (msg != null && !msg.getText().isEmpty()) {
-				System.out.println("Sending message: " + this.msg.getText());
+				System.out.println("EmployeeConnection.sendMessage(): Sending msg: " + msg.getType() + " | " + msg.getStatus() + " | " + msg.getText());
 				this.oos.writeObject(msg);
 				this.oos.flush();
 			}

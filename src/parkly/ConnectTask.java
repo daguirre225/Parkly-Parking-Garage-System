@@ -19,6 +19,7 @@ public class ConnectTask extends SwingWorker<EmployeeConnection, Void> {
 		try {
 			// Create socket connection to server
 			EmployeeConnection connection = EmployeeService.connect("localhost", 1235);
+			System.out.println("ConnectTask.doInBackground(): Success creating EmployeeConnection connection.");
 			return connection;
 		} catch (IOException e) {
 			throw e;
@@ -29,9 +30,10 @@ public class ConnectTask extends SwingWorker<EmployeeConnection, Void> {
 	protected void done() {
 		// Runs back on Event Dispatch Thread (EDT)!
 		try {
-			EmployeeConnection socket = get(); // Get result from doInBackground
+			EmployeeConnection socket = get(); // Get result from doInBackground (socket obj client side)
 			new Thread(socket).start(); // Start listener thread for incoming messages from server (this is client side, similar to server side of implementing the run function)
 			EmployeeGUI.createEmployeeDashboard(); // Create employee dashboard GUI
+			System.out.println("ConnectTask.done(): Success creating listening thread.");
 		} catch (Exception e) {
 			String errorMessage = "Failed to connect to the serve.";
 			if (e.getCause() != null) {
