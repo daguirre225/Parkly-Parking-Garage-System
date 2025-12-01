@@ -120,15 +120,23 @@ public class FeeGUI extends JDialog {
         detailsPanel.add(new JScrollPane(ticketDetailsArea), gbc);
         
 		// 2. Fees Due Label
+        boolean isTicketPaid = foundTicket.isPaid();
 		int fee = foundTicket.getTotalFees();
 		double feeDouble = (double) fee;
-		
-        feeLabel = new JLabel("💰 Total Fees Due: $" + String.format("%.2f", feeDouble));
+		if (isTicketPaid) {
+			feeLabel = new JLabel("✅ TICKET ALREADY PAID!");
+			feeLabel.setForeground(Color.green.darker());
+		} else {
+			feeLabel = new JLabel("💰 Total Fees Due: $" + String.format("%.2f", feeDouble));
+		    feeLabel.setForeground(new Color(34, 139, 34));
+		}
+//        feeLabel = new JLabel("💰 Total Fees Due: $" + String.format("%.2f", feeDouble));
         feeLabel.setFont(new Font("SansSerif", Font.BOLD, 18)); // Make fee stand out
         feeLabel.setForeground(new Color(34, 139, 34)); // Dark green color
         
         gbc.gridy = 1;
         gbc.fill = GridBagConstraints.NONE;
+//        detailsPanel.add(feeLabel);
         detailsPanel.add(feeLabel, gbc);
         
 		// 3. Payment Input Fields
@@ -157,7 +165,9 @@ public class FeeGUI extends JDialog {
 
         // Use Lambda for Action Listener
 		payButton.addActionListener(e -> processPayment(foundTicket));
-		
+		paymentAmountText.setEnabled(!isTicketPaid);
+		payTypeCombo.setEnabled(!isTicketPaid);
+		payButton.setEnabled(!isTicketPaid);
         gbc.gridy = 3;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER; // Center the button
