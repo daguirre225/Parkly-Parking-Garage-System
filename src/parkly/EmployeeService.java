@@ -1,5 +1,6 @@
 package parkly;
 import java.io.IOException;
+import java.time.LocalDateTime;
 public class EmployeeService {
 	private static EmployeeConnection socket = null;
 	
@@ -22,8 +23,20 @@ public class EmployeeService {
 		}
 	}
 	
-	public static void loginWindow() {
-		
+	public static Ticket generateTicket() {
+		if (socket != null) {
+			System.out.println("EmployeeService.requestTicket: Requesting ticket...");
+			return socket.generateTicket();
+		} else {
+			System.err.println("EmployeeService: Not connected.");
+		}
+		return null;
+	}
+	
+	public static void openEntryGate() {
+		if (socket != null) {
+			System.out.println("EmployeeService.openEntryGate: Sending open entry gate message...");
+		}
 	}
 	public static void disconnect() {
 		if (socket != null) {

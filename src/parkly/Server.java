@@ -2,9 +2,13 @@ package parkly;
 
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Server {
 	private static int employeeCount; // keep track of how many employee 
+	private static List<Ticket> activeTickets = new ArrayList<>();
+	
 	private static synchronized void increment() {employeeCount++;};
 	public static void main(String[] args) {
 		
@@ -43,10 +47,11 @@ public class Server {
 	private static class EmployeeHandler implements Runnable {
 		private final int employeeID; // keep track of this EmployeHandler's employee id
 		private final Socket employeeSocket; // for socket manipulation
+		private Message msg;
 		private String type;
 		private String status;
 		private String text;
-		
+		private Ticket ticket;
 		// constructor
 		public EmployeeHandler(int employeeCount, Socket socket) {
 			this.employeeID = employeeCount;
@@ -60,7 +65,7 @@ public class Server {
 				ObjectInputStream ois = new ObjectInputStream(this.employeeSocket.getInputStream());
 				System.out.println("Socket connected.");
 				// Test if a message can be sent from employee computer
-				Message msg = (Message) ois.readObject();
+				this.msg = (Message) ois.readObject();
 				this.type = msg.getType();
 				this.status = msg.getStatus();
 				this.text = msg.getText();
@@ -72,24 +77,45 @@ public class Server {
 				this.text = "CONNECTION ESTABLISHED!";
 				// Create new success object to send to client
 				oos.writeObject(new Message(this.type, this.status, this.text));
+				
+				// Loop to listen for incoming messages from client
 				while (true) {
-					msg = (Message) ois.readObject();
-					this.type = msg.getType();
-					this.status = msg.getStatus();
-					this.text = msg.getText();
-					if (this.type.equalsIgnoreCase("text") && this.status.equalsIgnoreCase("success")) {
-						System.out.println("Successfully received message: " + this.text);
-						oos.writeObject(new Message(this.type, this.status, this.text.toUpperCase().trim()));
-					} else if (this.type.equalsIgnoreCase("logout") || this.text.equalsIgnoreCase("logout")) {
-						this.status = "logout";
-						System.out.println("Logout received: " + msg.getText());
-						oos.writeObject(new Message("success", this.status, "CONNECTION CLOSED!"));
-						break;
-					} else {
-						oos.writeObject(new Message(this.type, this.status, "Error, could not capitolize string: " + this.text));
+					// Listening while loop for any new incoming objects
+					Object receivedObject = ois.readObject();
+					if(!(receivedObject instanceof ObjectTag)) {
+						System.err.println("Protocol error: Received object cannot be identified.");
+						oos.writeObject(new Message("error", "protocol", "Unknown object type received."));
+						continue;
+					}
+					
+					ObjectTag taggedObject = (ObjectTag) receivedObject;
+					String tag = taggedObject.getObjectTag();
+					switch (tag) {
+						case "MESSAGE":
+							this.msg = (Message) taggedObject;
+							System.out.println("Successfully received message: " + this.msg.getText());
+							if (this.msg.getType().equalsIgnoreCase("text") && this.msg.getStatus().equalsIgnoreCase("success")) {
+								oos.writeObject(new Message(this.msg.getType(), this.msg.getStatus(), this.msg.getText().toUpperCase().trim()));
+							} else if (this.msg.getType().equalsIgnoreCase("TICKET") && this.msg.getText().equalsIgnoreCase("GENERATE NEW TICKET")) {
+								Ticket ticket = new Ticket();
+								System.out.println("New ticket generate.\nTicketID: " + ticket.getTicketID());
+								oos.writeObject(ticket);
+							} else if (this.msg.getType().equalsIgnoreCase("logout") && this.msg.getText().equalsIgnoreCase("logout")){
+								this.status = "logout";
+								System.out.println("Logout received: " + msg.getText());
+								oos.writeObject(new Message("success", this.status, "CONNECTION CLOSED!"));
+							} else {
+								System.out.println("Could not capitolize message...");
+							}
+							break;
+							
+							
+						case "TICKET":
+							this.ticket = (Ticket) taggedObject;
+							System.out.println("Successfully received ticket request.");
+							break;
 					}
 				}
-				System.out.println("End of chat.");
 			} catch (EOFException e) {
 				System.out.println("Employee " + employeeID + " disconnected abruptly (EOF).");
 			} catch (IOException e) {

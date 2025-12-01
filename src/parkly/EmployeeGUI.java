@@ -8,6 +8,8 @@ import javax.swing.border.Border;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.ListSelectionEvent;
 import java.net.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,51 +17,63 @@ import java.util.Scanner;
 import java.io.*;
 
 public class EmployeeGUI {
-	private static boolean allowLogin = false;
-//	private static ObjectOutputStream oos;
-//	private static ObjectInputStream ois;
-	private static JTextArea messageArea;
-	private static JFrame dashboardFrame;
-	private static boolean connected = false;
-	private static EmployeeConnection socket;
+	private static JFrame mainFrame;
 	private static JTextArea serverTextBox;
-	private static Map<String, String> VALID_USERS = null;
-	private static String RESOURCE_PATH = null;
-
+	private static JPanel panel;
+	private static JPanel displayServerPanel;
+	private static JLabel serverTextLabel;
+	private static JPanel inputTextPanel;
+	private static JLabel inputTextLabel;
+	private static JTextArea inputText;
+	private static JButton sendButton;
+	private static JButton logoutButton;
+	private static JPanel imagePanel;
+	private static ImageIcon parklyImageIcon;
+	private static Image scaledIcon;
+	private static JLabel imageIconLabel;
+	private static JLabel dateTimeLabel;
+	private static Timer timer;
+	private static JButton openEntryGateButton;
+	private static JButton payFeesButton;
+	private static JButton openExitGateButton;
+	
 	
 	static void createEmployeeDashboard() {
 		// Main container
-		JFrame frame = new JFrame("EMPLOYEE DASHBOARD");
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setSize(800, 400);
-		frame.setPreferredSize(new Dimension(800, 600));
-		frame.setLocationRelativeTo(null);
+		mainFrame = new JFrame("EMPLOYEE DASHBOARD");
+		mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		mainFrame.setSize(800, 400);
+		mainFrame.setPreferredSize(new Dimension(800, 600));
+		mainFrame.setLocationRelativeTo(null);
 		// Main panel to hold sub panels
-		JPanel panel = new JPanel();
+		panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 		
 		
-		JPanel displayServerPanel = new JPanel(new GridLayout(1, 2)); // panel to show text
-		JLabel serverTextLabel = new JLabel("Server: ", JLabel.LEFT);
-//		String response = socket.getMessage().getText();
+//		displayServerPanel = new JPanel(new GridLayout(1, 2)); // panel to show text
+		displayServerPanel = new JPanel();
+		displayServerPanel.setLayout(new BoxLayout(displayServerPanel, BoxLayout.X_AXIS));
+		serverTextLabel = new JLabel("Server: ", JLabel.LEFT);
+
 		String response = "Connection established. Ready to receive server messages...\n";
 		serverTextBox = new JTextArea(response, 10, 10);
 		serverTextBox.setEditable(false);
 		displayServerPanel.add(serverTextLabel);
 		displayServerPanel.add(new JScrollPane(serverTextBox));
 		
-		JPanel enterTextPanel = new JPanel(new GridLayout(3, 1)); // panel to send messages
-		JLabel inputTextLabel = new JLabel("Enter text: ", JLabel.LEFT);
-		JTextArea inputText = new JTextArea();
-		String input = inputText.getText();
+		// User input text panel
+//		inputTextPanel = new JPanel(new GridLayout(3, 1)); // panel to send messages
+		inputTextPanel = new JPanel();
+		inputTextPanel.setLayout(new BoxLayout(inputTextPanel, BoxLayout.X_AXIS));
+		inputTextLabel = new JLabel("Enter text: ", JLabel.LEFT);
+		inputText = new JTextArea();
 		
 		// Send button
-		JButton sendButton = new JButton("Send");
+		sendButton = new JButton("Send");
 		sendButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				String inputToSend = inputText.getText();
 				if (!inputToSend.isEmpty()) {
-//				socket.sendMessage(new Message("text", "success", inputToSend));
 				Message msgToSend = new Message("text", "success", inputToSend);
 				System.out.println("Message being sent: " + msgToSend.getType() + " | " + msgToSend.getStatus() + " | " + msgToSend.getText());
 //				socket.sendMessage(msgToSend);
@@ -70,49 +84,93 @@ public class EmployeeGUI {
 			}
 		});
 		
+		// Open entry gate button
+		openEntryGateButton = new JButton("Open Entrance Gate");
+		openEntryGateButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				Ticket newTicket = EmployeeService.generateTicket();
+				EmployeeService.openEntryGate();
+			}
+		});
+		
+		// Calculate fees
+		payFeesButton = new JButton("Pay Fees");
+		payFeesButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				FeeGUI feePaymentWindow = new FeeGUI(mainFrame);
+				feePaymentWindow.setVisible(true);
+			}
+		});
+		
+		// Open exit gate button
+		openExitGateButton = new JButton("Open Exit Gate");
 		// Logout button
-		JButton logoutButton = new JButton("Logout");
+		logoutButton = new JButton("Logout");
 		logoutButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if (JOptionPane.showConfirmDialog(frame, "Are you sure you want to logout of dashboard?", "Logout of dashboard?", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+				if (JOptionPane.showConfirmDialog(mainFrame, "Are you sure you want to logout of dashboard?", "Logout of dashboard?", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
 					EmployeeService.disconnect();
-					frame.dispose();
+					mainFrame.dispose();
 					EmployeeGUI.startLoginAndConnectFlow();
 				}
 			}
 		});
 		
 		// Close window logs out / disconnects correctly 
-		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		frame.addWindowListener(new java.awt.event.WindowAdapter() {
+		mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		mainFrame.addWindowListener(new java.awt.event.WindowAdapter() {
 			@Override
 			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-				if (JOptionPane.showConfirmDialog(frame, "Are you sure you want to close the dashboard and disconnect?", "Close Application?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+				if (JOptionPane.showConfirmDialog(mainFrame, "Are you sure you want to close the dashboard and disconnect?", "Close Application?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
 					EmployeeService.disconnect();
 					System.exit(0);
 				}
 			}
 		});
 		
-		enterTextPanel.add(inputTextLabel);
-		enterTextPanel.add(inputText);
-		enterTextPanel.add(sendButton);
 		
-		JPanel imagePanel = new JPanel(); // hold image icon label
-		ImageIcon parklyImageIcon = new ImageIcon("images/Parkly_Icon.png"); // hold software icon
-		Image scaledIcon = parklyImageIcon.getImage().getScaledInstance(256, 256, Image.SCALE_SMOOTH); // re-scale image icon
+		// display date and time
+		dateTimeLabel = new JLabel("Loading Time...", JLabel.CENTER);
+		dateTimeLabel.setFont(new Font("Arial", Font.BOLD, 16));
+		
+		inputTextPanel.add(inputTextLabel);
+		inputTextPanel.add(inputText);
+		inputTextPanel.add(sendButton);
+		
+		imagePanel = new JPanel(); // hold image icon label
+		parklyImageIcon = new ImageIcon("images/Parkly_Icon.png"); // hold software icon
+		scaledIcon = parklyImageIcon.getImage().getScaledInstance(256, 256, Image.SCALE_SMOOTH); // re-scale image icon
 		parklyImageIcon = new ImageIcon(scaledIcon); // reset image to re-scaled size
-		JLabel imageIconLabel = new JLabel(parklyImageIcon);
+		imageIconLabel = new JLabel(parklyImageIcon);
 		
 		imagePanel.add(imageIconLabel);
 		panel.add(imagePanel);
 		panel.add(displayServerPanel);
-		panel.add(enterTextPanel);
+		panel.add(inputTextPanel);
+		panel.add(openEntryGateButton);
+		panel.add(payFeesButton);
 		panel.add(logoutButton);
-		frame.add(panel);
-		frame.pack();
-		frame.setVisible(true);
+		panel.add(dateTimeLabel);
+		mainFrame.add(panel);
+		mainFrame.pack();
+		mainFrame.setVisible(true);
+		
+		// Action listener to update label
+		ActionListener updateTimeAction = new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				LocalDateTime now = java.time.LocalDateTime.now();
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+				String formattedDateTime = now.format(formatter);
+				dateTimeLabel.setText(formattedDateTime);
+			}
+		};
+		// Timer to keep track of time
+		timer = new Timer(1000, updateTimeAction);
+		timer.start();
 	}
 
 	public static void appendServerMessage(String message) {

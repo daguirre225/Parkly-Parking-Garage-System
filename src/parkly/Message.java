@@ -2,8 +2,9 @@ package parkly;
 import java.io.Serializable;
 
 
-public class Message implements Serializable {
+public class Message implements ObjectTag {
 	private static int count = 0;
+	private final String tag = "MESSAGE";
 	private final int id;
 	protected String type;
 	protected String status;
@@ -23,6 +24,9 @@ public class Message implements Serializable {
 		this.id = ++count;
 	}
 	
+	public String getObjectTag() {
+		return this.tag;
+	}
 	public String getType() {
 		return this.type;
 	}

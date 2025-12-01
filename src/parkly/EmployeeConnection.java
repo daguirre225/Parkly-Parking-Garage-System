@@ -1,15 +1,18 @@
 package parkly;
 
 import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.util.Scanner;
-
 
 public class EmployeeConnection implements Runnable {
 	private Socket socket;
 	private ObjectOutputStream oos;
 	private ObjectInputStream ois;
 	private Message msg;
+	private Ticket ticket = null;
 	private Scanner sc;
 	private String input;
 	private String type;
@@ -51,24 +54,45 @@ public class EmployeeConnection implements Runnable {
 		try {
 			// Listens for incoming messages
 			while (running) {
-				this.msg = (Message) ois.readObject();
-				String receivedText = this.msg.getText();
-				
-				System.out.println("Returned message: " + receivedText);
-				EmployeeGUI.appendServerMessage("Server: " + receivedText + "\n");
-//				if (type.equalsIgnoreCase("text") && !input.equalsIgnoreCase("logout")) {
-//					oos.writeObject(new Message(type, status, input));
-//					msg = (Message) ois.readObject();
-//					status = msg.getStatus();
-//				} else if (input.equalsIgnoreCase("logout") || text.equalsIgnoreCase("logout")) {
-//					oos.writeObject(new Message("logout", status, "logout"));
-//					msg = (Message) ois.readObject();
-//					status = msg.getStatus();
-//					break;
-//				} else {
-//					System.out.println("Protocol error: Unexpected message type...");
-//					break;
-//				}
+				// Check what object we receive first
+				Object receivedObject = ois.readObject();
+				if (!(receivedObject instanceof ObjectTag)) {
+					System.err.println("Protocol error: Received object cannot be identified.");
+					continue;
+				}
+				ObjectTag taggedObject = (ObjectTag) receivedObject;
+				String tag = taggedObject.getObjectTag();
+				switch (tag) {
+					case "MESSAGE": 
+						this.msg = (Message) taggedObject;
+						EmployeeGUI.appendServerMessage("Server: " + this.msg.getText() + "\n");
+						if (type.equalsIgnoreCase("text") && !input.equalsIgnoreCase("logout")) {
+							oos.writeObject(new Message(type, status, input)); // create new message object to send to server
+							msg = (Message) ois.readObject(); // retrieve servers response in caps
+							status = msg.getStatus(); // synch status of messages
+							System.out.println("Server: " + msg.getText()); // display new message in console
+							System.out.print("Enter message: ");
+						} else if (input.equalsIgnoreCase("logout") || text.equalsIgnoreCase("logout")) { // if logout is sent to server
+							oos.writeObject(new Message("logout", status, "logout")); // send new logout message to server
+							msg = (Message) ois.readObject(); // receive logout message to end connection
+							status = msg.getStatus(); // synch status of messages
+							break; // end loop and close socket
+						} else { 
+							System.out.println("Protocol error: Unexpected message type...");
+							break;
+						}
+						break;
+						
+					case "TICKET":
+						this.ticket = (Ticket) taggedObject;
+						System.out.println("Received Ticket ID: " + this.ticket.getTicketID());
+						EmployeeGUI.appendServerMessage("Server: new ticket created with ID: " + this.ticket.getTicketID());
+						break;
+					
+					default: 
+						System.err.println("Unknown object tag received: " + tag);
+						break;
+				}
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -110,6 +134,23 @@ public class EmployeeConnection implements Runnable {
 			System.err.println("Error sending message: " + e.getMessage());
 		}
 	}
+	
+	public Ticket generateTicket() {
+		sendMessage(new Message("TICKET", "SUCCESS", "GENERATE NEW TICKET"));
+		long startTime = System.currentTimeMillis();
+		while (this.ticket == null) {
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return null;
+			}
+		}
+		Ticket returnTicket =  this.ticket;
+		this.ticket = null;
+		return returnTicket;
+	}
+	
 	
 	public void logout() {
 		this.running = false;
