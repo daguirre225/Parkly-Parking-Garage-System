@@ -23,7 +23,7 @@ public class ConnectTask extends SwingWorker<EmployeeConnection, Void> {
 		try {
 			// Create socket connection to server via connected network
 			EmployeeConnection connection = EmployeeService.connect("10.0.0.114", 1235); // create an EmployeeConnection object that will hold Socket + Socket to server operations
-			System.out.println("ConnectTask.doInBackground(): Success creating EmployeeConnection connection.");
+			System.out.println("ConnectTask.doInBackground:\n\tSuccess creating EmployeeConnection connection.");
 			return connection; // Send established connection to done()
 		} catch (IOException e) {
 			throw e;
@@ -41,7 +41,7 @@ public class ConnectTask extends SwingWorker<EmployeeConnection, Void> {
 			// a continuous, blocking operation that must NOT run on the EDT or the SwingWorder thread.
 			new Thread(socket).start(); 
 			EmployeeGUI.createEmployeeDashboard(); // Create employee dashboard GUI on the safe EDT
-			System.out.println("ConnectTask.done(): Success creating listening thread.");
+			System.out.println("ConnectTask.done:\n\tSuccess creating listening thread.");
 		} catch (Exception e) {
 			String errorMessage = "Failed to connect to the serve.";
 			if (e.getCause() != null) {

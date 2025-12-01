@@ -52,6 +52,7 @@ public class Server {
 		private String status;
 		private String text;
 		private Ticket ticket;
+		private Gate gate;
 		// constructor
 		public EmployeeHandler(int employeeCount, Socket socket) {
 			this.employeeID = employeeCount;
@@ -93,19 +94,62 @@ public class Server {
 					switch (tag) {
 						case "MESSAGE":
 							this.msg = (Message) taggedObject;
-							System.out.println("Successfully received message: " + this.msg.getText());
+							System.out.println("Server.run (MESSAGE): Successfully received message. \n\tTYPE: " + this.msg.getType() + "\n\tSTATUS: " + this.msg.getStatus() + "\n\tTEXT: " + this.msg.getText());
 							if (this.msg.getType().equalsIgnoreCase("text") && this.msg.getStatus().equalsIgnoreCase("success")) {
 								oos.writeObject(new Message(this.msg.getType(), this.msg.getStatus(), this.msg.getText().toUpperCase().trim()));
+								oos.flush();
+							
+								// NEW TICKET
 							} else if (this.msg.getType().equalsIgnoreCase("TICKET") && this.msg.getText().equalsIgnoreCase("GENERATE NEW TICKET")) {
-								Ticket ticket = new Ticket();
-								System.out.println("New ticket generate.\nTicketID: " + ticket.getTicketID());
-								oos.writeObject(ticket);
+								this.ticket = new Ticket();
+								System.out.println("Server.run (NEW TICKET):\n\tNew ticketID created: " + this.ticket.getTicketID());
+								activeTickets.add(this.ticket);
+								oos.writeObject(this.ticket);
+								oos.flush();
+								// FIND TICKET
+							} else if (this.msg.getType().equalsIgnoreCase("FIND TICKET")) {
+								System.out.println("Server.run (FIND TICKET): Searching for ticket: " + this.msg.getText());
+								String ticketID = this.msg.getText();
+								this.ticket = findTicket(ticketID);
+								if (this.ticket != null) { 
+									if (this.ticket.getTicketID().equalsIgnoreCase(this.msg.getText())) {
+										this.ticket.setExitStamp(); // close ticket timing, set exit timing, calc total time + fees due;
+										oos.reset();
+										System.out.println("\tFOUND TICKET: " + this.ticket.getTicketID());
+										System.out.println("\tTicket Data:\n\tENTRY TIME: " + this.ticket.getEntryTime() + "\n\tEXIT TIME: " + this.ticket.getExitTime() + "\n\tFEES DUE: " + this.ticket.getTotalFees());
+										oos.writeObject(this.ticket);
+										oos.flush();
+									}
+								} //else {
+//									System.out.println("SERVER: Could not find ticket in server.");
+//									oos.writeObject(new Message("text", "success", "Could not find ticket in server."));
+//								}
+							} else if (this.msg.getType().equalsIgnoreCase("PAY TICKET")) {
+								this.ticket = findTicket(this.msg.getText());
+								// FIX NULL POINTER EXCEPTION
+								if (this.ticket != null) {
+									if (this.ticket.getTicketID().equalsIgnoreCase(this.msg.getText())) {
+										this.ticket.markPaid();
+										System.out.println("Server.run (PAY TICKET): Ticket " + this.ticket.getTicketID() + " has been paid: " + this.ticket.isPaid());
+										oos.writeObject(new Message("text", "success", "Ticket " + this.ticket.getTicketID() + " has been paid."));
+										oos.flush();
+									} //else {
+//									System.out.println("SERVER: Could not find ticket in server.");
+//									oos.writeObject(new Message("text", "success", "Could not find ticket in server."));
+								}
+								
+							} else if (this.msg.getType().equalsIgnoreCase("GATE") && this.msg.getText().equalsIgnoreCase("OPEN ENTRY GATE")) {
+								System.out.println("Server.run (OPEN ENTRY GATE):\n\tOpening front gate...");
+								
 							} else if (this.msg.getType().equalsIgnoreCase("logout") && this.msg.getText().equalsIgnoreCase("logout")){
 								this.status = "logout";
-								System.out.println("Logout received: " + msg.getText());
+								System.out.println("Server.run (LOGOUT):\n\tLogout received: " + msg.getText());
 								oos.writeObject(new Message("success", this.status, "CONNECTION CLOSED!"));
+								oos.flush();
 							} else {
 								System.out.println("Could not capitolize message...");
+								oos.writeObject(new Message("text", "success", "Failed."));
+								oos.flush();
 							}
 							break;
 							
@@ -131,6 +175,19 @@ public class Server {
 					e.printStackTrace();
 				}
 			}
+		}
+		
+		public Ticket findTicket(String ticketID) {
+			for (Ticket ticket : activeTickets) {
+				if (ticket instanceof Ticket) {
+					Ticket foundTicket = (Ticket) ticket;
+					if (foundTicket.getTicketID().equals(ticketID)) {
+						return foundTicket;
+					}
+				}
+			}
+			System.out.println("Could not find ticket.");
+			return null;
 		}
 	}
 }

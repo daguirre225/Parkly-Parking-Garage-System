@@ -1,53 +1,245 @@
 package parkly;
-import javax.swing.*;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
 
-import java.awt.BorderLayout;
-import java.awt.Dialog.ModalityType;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.time.format.DateTimeFormatter; // Import if you need to display formatted dates
 
 public class FeeGUI extends JDialog {
-	private static JPanel mainPanel;
-	private static JLabel searchTicketLabel;
-	private static JTextField searchTicketText;
-	private static JButton searchTicketButton;
-	private Ticket ticket;
-	
+    // --- Components ---
+	private final JPanel mainPanel;
+	private final JTextField searchTicketText;
+	private final JButton searchTicketButton;
+	private final JPanel detailsPanel;
+	private JTextArea ticketDetailsArea; // Changed from Label to Area for scroll and multi-line
+	private JLabel feeLabel;
+	private JTextField paymentAmountText;
+	private JComboBox<String> payTypeCombo;
+	private JButton payButton;
+	private Ticket ticket; // For returning the result
+
+    // --- Modernization: Look and Feel setup (Optional, call once at application start) ---
+    public static void setLookAndFeel() {
+        try {
+            // Use the Nimbus L&F for a modern look
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            // If Nimbus is not available, fall back to default
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ex) {
+                // Handle exception
+            }
+        }
+    }
+
 	public FeeGUI(JFrame owner) {
 		super(owner, "Pay Parking Fees", ModalityType.APPLICATION_MODAL);
-		this.setSize(400, 300);
+        // 1. Modernize Initial Setup
+        // setLookAndFeel(); // Call this once in your main application entry point
+
+		this.setSize(600, 450); // Increase size for better spacing
 		this.setLocationRelativeTo(owner);
 		this.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		mainPanel = new JPanel();
-		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
 		
-		searchTicketLabel = new JLabel("Enter ticket ID: ");
-		searchTicketText = new JTextField(10);
-		searchTicketButton = new JButton("Search Ticket");
+		mainPanel = new JPanel(new BorderLayout(15, 15)); // Use BorderLayout for main structure
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15)); // Add padding
+
+        // --- Top Search Panel ---
+		JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10)); // Use FlowLayout for alignment
+        JLabel searchTicketLabel = new JLabel("💳 Enter Ticket ID:");
+		searchTicketText = new JTextField(15);
+		searchTicketButton = new JButton("🔍 Search Ticket");
+        
+		searchPanel.add(searchTicketLabel);
+		searchPanel.add(searchTicketText);
+		searchPanel.add(searchTicketButton);
 		
-		mainPanel.add(searchTicketLabel);
-		mainPanel.add(searchTicketText);
-		mainPanel.add(searchTicketButton);
+		mainPanel.add(searchPanel, BorderLayout.NORTH);
 		
-		this.getContentPane().add(mainPanel, BorderLayout.CENTER);
+		// --- Center Details Panel (Dynamically populated) ---
+		detailsPanel = new JPanel(new GridBagLayout()); // Use GridBagLayout for flexible internal layout
+        detailsPanel.setBorder(BorderFactory.createTitledBorder("Ticket Information & Payment"));
+        mainPanel.add(detailsPanel, BorderLayout.CENTER);
+		
+		this.getContentPane().add(mainPanel);
 		this.pack();
 		
-		searchTicketButton.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				String searchTicketInput = searchTicketText.getText();
-				if (searchTicketInput != null) {
-					searchTicket(searchTicketInput);
-				}
-			}
+		// --- Action Listener (Modernized with Lambda) ---
+		searchTicketButton.addActionListener(e -> {
+			String searchTicketInput = searchTicketText.getText().trim();
+			if (!searchTicketInput.isEmpty()) {
+				searchTicket(searchTicketInput);
+			} else {
+                JOptionPane.showMessageDialog(this, "Please enter a Ticket ID.", "Input Required", JOptionPane.WARNING_MESSAGE);
+            }
 		});
 	}
 	
-	private Ticket searchTicket(String input) {
-		return ticket;
+	
+	// Function to launch task to search for ticket in server data
+	private void searchTicket(String input) {
+		new TicketSearchTask(input).execute();
+	}
+
+	private void displayTicketDetails(Ticket foundTicket) {
+		detailsPanel.removeAll();
+        // Use GridBagConstraints for organized, modern layout
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5); // Padding around components
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+		System.out.println("FeeGUI.displayTicketDetails: \tFOUND TICKET: " + foundTicket.getTicketID());
+		System.out.println("\t\tTicket Data:\n\tENTRY TIME: " + foundTicket.getEntryTime() + "\n\tEXIT TIME: " + foundTicket.getExitTime() + "\n\tFEES DUE: " + foundTicket.getTotalFees());
+		
+		// 1. Ticket Details Section (Using a JTextArea inside a JScrollPane)
+        String detailsText = String.format(
+            "Ticket ID: %s\n" +
+            "Entry Date: %s | Entry Time: %s\n" +
+            "Exit Date: %s | Exit Time: %s\n" +
+            "Total Parked Time (hrs): %d", 
+            foundTicket.getTicketID(),
+            foundTicket.getEntryDate(), foundTicket.getEntryTime(),
+            foundTicket.getExitDate(), foundTicket.getExitTime(),
+            foundTicket.getTotalTime()
+        );
+        
+        ticketDetailsArea = new JTextArea(detailsText, 5, 30); // 5 rows, 30 columns
+        ticketDetailsArea.setEditable(false);
+        ticketDetailsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        ticketDetailsArea.setBackground(detailsPanel.getBackground()); // Match background for cleaner look
+        
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2; // Span two columns
+        detailsPanel.add(new JScrollPane(ticketDetailsArea), gbc);
+        
+		// 2. Fees Due Label
+		int fee = foundTicket.getTotalFees();
+		double feeDouble = (double) fee;
+		
+        feeLabel = new JLabel("💰 Total Fees Due: $" + String.format("%.2f", feeDouble));
+        feeLabel.setFont(new Font("SansSerif", Font.BOLD, 18)); // Make fee stand out
+        feeLabel.setForeground(new Color(34, 139, 34)); // Dark green color
+        
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        detailsPanel.add(feeLabel, gbc);
+        
+		// 3. Payment Input Fields
+		JPanel paymentPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+		
+        // Amount Paid Field
+        paymentPanel.add(new JLabel("Amount Paid:"));
+		paymentAmountText = new JTextField(String.format("%.2f", feeDouble), 8);
+		paymentAmountText.setHorizontalAlignment(JTextField.RIGHT);
+		paymentPanel.add(paymentAmountText);
+		
+        // Pay Type Combo Box
+		paymentPanel.add(new JLabel("Payment Method:"));
+		payTypeCombo = new JComboBox<>(new String[] {"Cash", "Credit/Debit Card", "Mobile Payment"}); // More descriptive options
+		payTypeCombo.setSelectedItem("Cash");
+		paymentPanel.add(payTypeCombo);
+		
+        gbc.gridy = 2;
+        detailsPanel.add(paymentPanel, gbc);
+		
+		// 4. Payment button (Use a new look for the button)
+		payButton = new JButton("✅ Process Payment");
+        payButton.setBackground(new Color(0, 123, 255)); // Blue background
+        payButton.setForeground(Color.BLACK);
+        payButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+
+        // Use Lambda for Action Listener
+		payButton.addActionListener(e -> processPayment(foundTicket));
+		
+        gbc.gridy = 3;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.CENTER; // Center the button
+        detailsPanel.add(payButton, gbc);
+		
+		
+		// Repaint window to show new components
+		this.revalidate();
+		this.repaint();
+		this.pack();
 	}
 	
+	private void processPayment(Ticket paidTicket) {
+		// Finalized payment logic
+		String payType = (String) payTypeCombo.getSelectedItem();
+		double amount = 0.0;
+        try {
+            amount = Double.parseDouble(paymentAmountText.getText());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid amount entered.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+		
+		// Send update to server
+		EmployeeService.payTicket(paidTicket);
+		// Store result and dispose dialog
+		this.ticket = paidTicket;
+		JOptionPane.showMessageDialog(this, String.format("Payment of $%.2f successful via %s!", amount, payType), "Payment Success", JOptionPane.INFORMATION_MESSAGE);
+		this.dispose();
+	}
 	
-	
+	public Ticket getProcessedTicket() {
+		return this.ticket;
+	}
+
+	// --- SwingWorker remains the same, but uses lambda in the constructor ---
+	private class TicketSearchTask extends SwingWorker<Ticket, Void> {
+		private final String ticketID;
+		
+		public TicketSearchTask(String ticketID) {
+			this.ticketID = ticketID;
+			searchTicketButton.setEnabled(false); // Disable button while searching for ticket
+		}
+		
+        @Override
+		protected Ticket doInBackground() throws Exception {
+			Message searchRequest = new Message("FIND TICKET", "success", ticketID);
+			
+			EmployeeService.sendMessage(searchRequest);
+			Ticket foundTicket = EmployeeService.findTicket(ticketID);
+			
+			if (foundTicket != null && foundTicket.getTicketID().equalsIgnoreCase(ticketID)) {
+				return foundTicket;
+			} else {
+				throw new Exception("Ticket ID " + ticketID + " not found in system.");
+			}
+		}
+		
+		@Override
+		protected void done() {
+			searchTicketButton.setEnabled(true); // reactivate search button
+			try {
+				Ticket foundTicket = get();
+				System.out.println("FeeGUI.done: received ticket: " + foundTicket.getTicketID());
+				ticket = foundTicket;
+				displayTicketDetails(foundTicket);
+			} catch (Exception e) {
+				String fullErrorMessage = e.getMessage();
+				String prefixToRemove = "java.lang.Exception: ";
+				String displayMessage;
+				if (fullErrorMessage != null && fullErrorMessage.startsWith(prefixToRemove)) {
+					displayMessage = fullErrorMessage.replace(prefixToRemove, "");
+				} else if (fullErrorMessage != null) {
+					displayMessage = fullErrorMessage;
+				} else {
+					displayMessage = "An unknown search error ocurred.";
+				}
+				JOptionPane.showMessageDialog(FeeGUI.this, displayMessage, "Search Error", JOptionPane.ERROR_MESSAGE);
+				detailsPanel.removeAll();
+				FeeGUI.this.revalidate();
+				FeeGUI.this.repaint();
+			}
+		}
+	}
 }

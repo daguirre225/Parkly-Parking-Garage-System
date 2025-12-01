@@ -101,6 +101,7 @@ public class EmployeeGUI {
 			public void actionPerformed(ActionEvent e) {
 				FeeGUI feePaymentWindow = new FeeGUI(mainFrame);
 				feePaymentWindow.setVisible(true);
+				Ticket result = feePaymentWindow.getProcessedTicket();
 			}
 		});
 		

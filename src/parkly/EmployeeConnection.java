@@ -12,7 +12,8 @@ public class EmployeeConnection implements Runnable {
 	private ObjectOutputStream oos;
 	private ObjectInputStream ois;
 	private Message msg;
-	private Ticket ticket = null;
+	private volatile Ticket generateTicket = null;
+	private volatile Ticket incomingTicket = null;
 	private Scanner sc;
 	private String input;
 	private String type;
@@ -66,27 +67,31 @@ public class EmployeeConnection implements Runnable {
 					case "MESSAGE": 
 						this.msg = (Message) taggedObject;
 						EmployeeGUI.appendServerMessage("Server: " + this.msg.getText() + "\n");
-						if (type.equalsIgnoreCase("text") && !input.equalsIgnoreCase("logout")) {
-							oos.writeObject(new Message(type, status, input)); // create new message object to send to server
-							msg = (Message) ois.readObject(); // retrieve servers response in caps
-							status = msg.getStatus(); // synch status of messages
-							System.out.println("Server: " + msg.getText()); // display new message in console
-							System.out.print("Enter message: ");
-						} else if (input.equalsIgnoreCase("logout") || text.equalsIgnoreCase("logout")) { // if logout is sent to server
-							oos.writeObject(new Message("logout", status, "logout")); // send new logout message to server
-							msg = (Message) ois.readObject(); // receive logout message to end connection
-							status = msg.getStatus(); // synch status of messages
-							break; // end loop and close socket
-						} else { 
-							System.out.println("Protocol error: Unexpected message type...");
-							break;
-						}
+//						if (type.equalsIgnoreCase("text") && !input.equalsIgnoreCase("logout")) {
+////							oos.writeObject(new Message(type, status, input)); // create new message object to send to server
+////							msg = (Message) ois.readObject(); // retrieve servers response in caps
+////							status = msg.getStatus(); // synch status of messages
+////							EmployeeGUI.appendServerMessage("Server: " + this.msg.getText());
+//						} else if (input.equalsIgnoreCase("logout") || text.equalsIgnoreCase("logout")) { // if logout is sent to server
+////							oos.writeObject(new Message("logout", status, "logout")); // send new logout message to server
+////							msg = (Message) ois.readObject(); // receive logout message to end connection
+////							status = msg.getStatus(); // synch status of messages
+//							break; // end loop and close socket
+//						} else { 
+////							System.out.println("Protocol error: Unexpected message type...");
+//							break;
+//						}
 						break;
 						
 					case "TICKET":
-						this.ticket = (Ticket) taggedObject;
-						System.out.println("Received Ticket ID: " + this.ticket.getTicketID());
-						EmployeeGUI.appendServerMessage("Server: new ticket created with ID: " + this.ticket.getTicketID());
+						Ticket receivedTicket = (Ticket) taggedObject;
+						this.generateTicket = receivedTicket;
+						this.incomingTicket = receivedTicket;
+						System.out.println("EmployeeConnection.run: TICKET OBJECT DETECTED: " + receivedTicket.getTicketID());
+						System.out.println("\tFOUND TICKET: " + receivedTicket.getTicketID());
+						System.out.println("\tTicket Data:\n\tENTRY TIME: " + receivedTicket.getEntryTime() + "\n\tEXIT TIME: " + receivedTicket.getExitTime() + "\n\tFEES DUE: " + receivedTicket.getTotalFees());
+						EmployeeGUI.appendServerMessage("Server: new ticket created with ID: " + receivedTicket.getTicketID());
+						
 						break;
 					
 					default: 
@@ -124,7 +129,7 @@ public class EmployeeConnection implements Runnable {
 		try {
 			// Send message through function
 			if (msg != null && !msg.getText().isEmpty()) {
-				System.out.println("EmployeeConnection.sendMessage(): Sending msg: " + msg.getType() + " | " + msg.getStatus() + " | " + msg.getText());
+				System.out.println("EmployeeConnection.sendMessage:\n\tSending msg: " + msg.getType() + " | " + msg.getStatus() + " | " + msg.getText());
 				this.oos.writeObject(msg);
 				this.oos.flush();
 			}
@@ -138,7 +143,7 @@ public class EmployeeConnection implements Runnable {
 	public Ticket generateTicket() {
 		sendMessage(new Message("TICKET", "SUCCESS", "GENERATE NEW TICKET"));
 		long startTime = System.currentTimeMillis();
-		while (this.ticket == null) {
+		while (this.generateTicket == null) {
 			try {
 				Thread.sleep(50);
 			} catch (InterruptedException e) {
@@ -146,26 +151,74 @@ public class EmployeeConnection implements Runnable {
 				return null;
 			}
 		}
-		Ticket returnTicket =  this.ticket;
-		this.ticket = null;
+		Ticket returnTicket =  this.generateTicket;
+		this.generateTicket = null;
 		return returnTicket;
 	}
 	
-	
-	public void logout() {
-		this.running = false;
-		if (socket != null && !socket.isClosed()) {
+	public Ticket findTicket(String ticketID) {
+		this.incomingTicket = null;
+		sendMessage(new Message("FIND TICKET", "SUCCESS", ticketID));
+		long startTime = System.currentTimeMillis();
+		final long TIMEOUT_MS = 5000; // 5 seconds
+		// wait until ticket is received OR timeout expires
+		while (this.incomingTicket == null && (System.currentTimeMillis() - startTime < TIMEOUT_MS)) {
 			try {
-				oos.writeObject(new Message("logout", null, "logout"));
-				socket.close();
-				System.out.println("Socket closed properly.");
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				System.out.println("Warning: Error closing socket.");
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return null;
 			}
-			
 		}
+		// if we exit the lopp and incomingTicket is still null
+		if (incomingTicket == null) {
+			System.out.println("EmployeeConnection.incomingTicket:\n\tTimed out waiting for server response.");
+		}
+		
+		Ticket returnTicket = this.incomingTicket;
+		this.incomingTicket = null;
+		System.out.println("EmployeeConnection.findTicket: \n\tFOUND TICKET: " + returnTicket.getTicketID());
+		System.out.println("\n\tTicket Data:\n\tENTRY TIME: " + returnTicket.getEntryTime() + "\n\tEXIT TIME: " + returnTicket.getExitTime() + "\n\tFEES DUE: " + returnTicket.getTotalFees());
+		return returnTicket;
+	}
+	
+	public void payTicket(Ticket paidTicket) {
+		sendMessage(new Message("PAY TICKET", "SUCCESS", paidTicket.getTicketID()));
+	}
+	
+	public String openEntryGate() {
+		sendMessage(new Message("GATE", "SUCCESS", "OPEN ENTRY GATE"));
+		return "Could not open gate";
+	}
+	
+	// Inside EmployeeConnection.java
+	public void logout() {
+	    // 1. Send logout request
+	    sendMessage(new Message("logout", null, "logout"));
+	    
+	    // 2. Add a synchronous read to catch the server's confirmation message
+	    try {
+	        // Wait for the server to confirm the status is "logout" before closing
+	        Object obj = ois.readObject(); // This is safe here because the thread is ending
+	        if (obj instanceof Message) {
+	            Message logoutConfirm = (Message) obj;
+	            System.out.println("Logout confirmed by server: " + logoutConfirm.getText());
+	        }
+	    } catch (Exception e) {
+	        System.out.println("Warning: Error during logout confirmation.");
+	    }
+	    
+	    // 3. Close connection and end run() loop
+	    this.running = false;
+	    if (socket != null && !socket.isClosed()) {
+	        try {
+	            socket.close();
+	            System.out.println("Socket closed properly.");
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	            System.out.println("Warning: Error closing socket.");
+	        }
+	    }
 	}
 }
 
