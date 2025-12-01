@@ -181,10 +181,12 @@ public class FeeGUI extends JDialog {
             return;
         }
 		
+        payButton.setEnabled(false);
+        new PayTicketTask(paidTicket, payType).execute();
 		// Send update to server
-		EmployeeService.payTicket(paidTicket);
+//		EmployeeService.payTicket(paidTicket);
 		// Store result and dispose dialog
-		this.ticket = paidTicket;
+//		this.ticket = paidTicket;
 		JOptionPane.showMessageDialog(this, String.format("Payment of $%.2f successful via %s!", amount, payType), "Payment Success", JOptionPane.INFORMATION_MESSAGE);
 		this.dispose();
 	}
@@ -193,7 +195,7 @@ public class FeeGUI extends JDialog {
 		return this.ticket;
 	}
 
-	// --- SwingWorker remains the same, but uses lambda in the constructor ---
+	// New worker task to avoid blocking EDT
 	private class TicketSearchTask extends SwingWorker<Ticket, Void> {
 		private final String ticketID;
 		
@@ -239,6 +241,49 @@ public class FeeGUI extends JDialog {
 				detailsPanel.removeAll();
 				FeeGUI.this.revalidate();
 				FeeGUI.this.repaint();
+			}
+		}
+	}
+	
+	private class PayTicketTask extends SwingWorker<Boolean, Void> {
+		private final Ticket paidTicket;
+		private final String payType;
+		private final double amount;
+		
+		public PayTicketTask(Ticket ticket, String payType) {
+			this.paidTicket = ticket;
+			this.payType = payType;
+			this.amount = Double.parseDouble(paymentAmountText.getText());
+			searchTicketButton.setEnabled(false);
+		}
+		@Override
+		protected Boolean doInBackground() throws Exception {
+			if (paidTicket == null) {
+				throw new Exception("Ticket not found in system.");
+			}
+			Boolean ticketPaidSuccessfully = EmployeeService.payTicket(paidTicket);
+			Thread.sleep(200);
+			if (ticketPaidSuccessfully) {
+				return true;
+			} else {
+				return false;
+//				throw new Exception("Ticket was not processed.");
+			}
+		}
+		@Override
+		protected void done() {
+			searchTicketButton.setEnabled(true);
+			payButton.setEnabled(true);
+			try {
+				if (get()) {
+					ticket = paidTicket;
+					JOptionPane.showMessageDialog(FeeGUI.this, String.format("Payment of $%.2f successful via %s!", amount, payType), "Payment Success", JOptionPane.INFORMATION_MESSAGE);
+					FeeGUI.this.dispose();
+				}
+			} catch (Exception e) {
+				String message = "Payment failed due to a network or server error.";
+				JOptionPane.showMessageDialog(FeeGUI.this, message, "Payment Error", JOptionPane.ERROR_MESSAGE);
+				e.printStackTrace();
 			}
 		}
 	}

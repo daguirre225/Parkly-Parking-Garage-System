@@ -89,8 +89,9 @@ public class EmployeeConnection implements Runnable {
 						this.incomingTicket = receivedTicket;
 						System.out.println("EmployeeConnection.run: TICKET OBJECT DETECTED: " + receivedTicket.getTicketID());
 						System.out.println("\tFOUND TICKET: " + receivedTicket.getTicketID());
-						System.out.println("\tTicket Data:\n\tENTRY TIME: " + receivedTicket.getEntryTime() + "\n\tEXIT TIME: " + receivedTicket.getExitTime() + "\n\tFEES DUE: " + receivedTicket.getTotalFees());
-						EmployeeGUI.appendServerMessage("Server: new ticket created with ID: " + receivedTicket.getTicketID());
+						System.out.println("\tTicket Data:\n\tENTRY TIME: " + receivedTicket.getEntryTime() + "\n\tEXIT TIME: " + 
+											receivedTicket.getExitTime() + "\n\tFEES DUE: " + receivedTicket.getTotalFees() + "\n\tPAID: " + receivedTicket.isPaid());
+//						EmployeeGUI.appendServerMessage("Server: new ticket with ID: " + receivedTicket.getTicketID());
 						
 						break;
 					
@@ -171,7 +172,7 @@ public class EmployeeConnection implements Runnable {
 			}
 		}
 		// if we exit the lopp and incomingTicket is still null
-		if (incomingTicket == null) {
+		if (this.incomingTicket == null) {
 			System.out.println("EmployeeConnection.incomingTicket:\n\tTimed out waiting for server response.");
 		}
 		
@@ -182,8 +183,26 @@ public class EmployeeConnection implements Runnable {
 		return returnTicket;
 	}
 	
-	public void payTicket(Ticket paidTicket) {
+	public Ticket payTicket(Ticket paidTicket) {
 		sendMessage(new Message("PAY TICKET", "SUCCESS", paidTicket.getTicketID()));
+		long startTime = System.currentTimeMillis();
+		final long TIMEOUT_MS = 5000;
+		while (this.incomingTicket == null && (System.currentTimeMillis() - startTime < TIMEOUT_MS)) {
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return null;
+			}
+		}
+		if (this.incomingTicket == null) {
+			System.out.println("EmployeeConnection.payTicket: \n\tTimed out waiting for server response.");
+		}
+		Ticket returnTicket = this.incomingTicket;
+		this.incomingTicket = null;
+		System.out.println("Employeeconnection.payTicket: \n\tPaidTicket: " + returnTicket.getTicketID());
+		System.out.println("\n\tTicket Paid: " + returnTicket.isPaid());
+		return returnTicket;
 	}
 	
 	public String openEntryGate() {

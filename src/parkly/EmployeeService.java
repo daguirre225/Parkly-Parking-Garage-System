@@ -43,25 +43,32 @@ public class EmployeeService {
 	public static Ticket findTicket(String ticketID) {
 		if (socket != null) {
 			System.out.println("EmployeeService.findTicket: Finding ticket...");
-			Ticket returnTicket = socket.findTicket(ticketID);
-			if (returnTicket != null) {
-				System.out.println("EmployeeService.findTicket: Returning ticket: " + returnTicket.getTicketID());				
+			Ticket returnedTicket = socket.findTicket(ticketID);
+			if (returnedTicket != null) {
+				System.out.println("EmployeeService.findTicket: Returning ticket: " + returnedTicket.getTicketID());				
 			} else {
 				System.out.println("EmployeeService.findTicket: Ticket not found (returning null).");
 			}
-			return returnTicket;
+			return returnedTicket;
 		} else {
 			System.err.println("EmployeeService.findTicket: Not connected.");
 		}
 		return null;
 	}
 	
-	public static void payTicket(Ticket paidTicket) {
+	public static boolean payTicket(Ticket paidTicket) {
 		if (socket != null) {
 			System.out.println("EmployeeService.payTicket: Updating ticket to paid.");
-			socket.payTicket(paidTicket);
+			Ticket returnedTicket = socket.payTicket(paidTicket);
+			if (returnedTicket != null) {
+				System.out.println("EmployeeService.payTicket: Returned ticket: " + returnedTicket.getTicketID());
+			} else {
+				System.out.println("EmployeeService.payTicket: Ticket not found (returning false).");
+			}
+			return true;
 		} else {
 			System.err.println("EmployeeService.payTicket: Not connected.");
+			return false;
 		}
 	}
 	public static String openEntryGate() {

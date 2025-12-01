@@ -120,22 +120,17 @@ public class Server {
 										oos.writeObject(this.ticket);
 										oos.flush();
 									}
-								} //else {
-//									System.out.println("SERVER: Could not find ticket in server.");
-//									oos.writeObject(new Message("text", "success", "Could not find ticket in server."));
-//								}
+								}
 							} else if (this.msg.getType().equalsIgnoreCase("PAY TICKET")) {
 								this.ticket = findTicket(this.msg.getText());
-								// FIX NULL POINTER EXCEPTION
 								if (this.ticket != null) {
 									if (this.ticket.getTicketID().equalsIgnoreCase(this.msg.getText())) {
 										this.ticket.markPaid();
+										oos.reset();
 										System.out.println("Server.run (PAY TICKET): Ticket " + this.ticket.getTicketID() + " has been paid: " + this.ticket.isPaid());
-										oos.writeObject(new Message("text", "success", "Ticket " + this.ticket.getTicketID() + " has been paid."));
+										oos.writeObject(this.ticket);
 										oos.flush();
-									} //else {
-//									System.out.println("SERVER: Could not find ticket in server.");
-//									oos.writeObject(new Message("text", "success", "Could not find ticket in server."));
+									}
 								}
 								
 							} else if (this.msg.getType().equalsIgnoreCase("GATE") && this.msg.getText().equalsIgnoreCase("OPEN ENTRY GATE")) {
