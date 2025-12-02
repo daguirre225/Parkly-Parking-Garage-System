@@ -20,6 +20,8 @@ public class EmployeeConnection implements Runnable {
 	private String status;
 	private String text;
 	private volatile boolean running = true;
+	private volatile Report lastReport = null;
+
 	
 	
 	// consider adding host and port number to parameters for constructor, not implemented for testing ATM.
@@ -92,8 +94,15 @@ public class EmployeeConnection implements Runnable {
 						System.out.println("\tTicket Data:\n\tENTRY TIME: " + receivedTicket.getEntryTime() + "\n\tEXIT TIME: " + 
 											receivedTicket.getExitTime() + "\n\tFEES DUE: " + receivedTicket.getTotalFees() + "\n\tPAID: " + receivedTicket.isPaid());
 //						EmployeeGUI.appendServerMessage("Server: new ticket with ID: " + receivedTicket.getTicketID());
-						
+
 						break;
+						
+					case "REPORT":
+					    this.lastReport = (Report) taggedObject;
+					    System.out.println("EmployeeConnection.run: REPORT received for date "
+					                       + lastReport.getDate() + " tickets=" + lastReport.getTickets().size());
+					    break;
+
 					
 					default: 
 						System.err.println("Unknown object tag received: " + tag);
@@ -209,6 +218,33 @@ public class EmployeeConnection implements Runnable {
 		sendMessage(new Message("GATE", "SUCCESS", "OPEN ENTRY GATE"));
 		return "Could not open gate";
 	}
+	
+	public Report requestReport(String date) {
+	    this.lastReport = null;
+	    sendMessage(new Message("REPORT", "SUCCESS", date));
+
+	    long startTime = System.currentTimeMillis();
+	    final long TIMEOUT_MS = 5000;
+
+	    while (this.lastReport == null &&
+	           (System.currentTimeMillis() - startTime < TIMEOUT_MS)) {
+	        try {
+	            Thread.sleep(50);
+	        } catch (InterruptedException e) {
+	            Thread.currentThread().interrupt();
+	            return null;
+	        }
+	    }
+
+	    if (this.lastReport == null) {
+	        System.out.println("EmployeeConnection.requestReport: timed out waiting for report.");
+	    }
+
+	    Report result = this.lastReport;
+	    this.lastReport = null;
+	    return result;
+	}
+
 	
 	// Inside EmployeeConnection.java
 	public void logout() {

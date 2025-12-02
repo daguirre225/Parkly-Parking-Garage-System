@@ -36,6 +36,8 @@ public class EmployeeGUI {
 	private static JButton openEntryGateButton;
 	private static JButton payFeesButton;
 	private static JButton openExitGateButton;
+	private static JButton reportButton;
+
 	
 	
 	static void createEmployeeDashboard() {
@@ -91,6 +93,17 @@ public class EmployeeGUI {
 			public void actionPerformed(ActionEvent e) {
 				Ticket newTicket = EmployeeService.generateTicket();
 				EmployeeService.openEntryGate();
+				
+		        if (newTicket != null) {
+		            EmployeeGUI.appendServerMessage(
+		                "Server: New ticket created (ID " + newTicket.getTicketID() + ")"
+		                + " | Entry: " + newTicket.getEntryDate() + " " + newTicket.getEntryTime()
+		            );
+		        } else {
+		            EmployeeGUI.appendServerMessage(
+		                "Server: Failed to create new ticket (no response)."
+		            );
+		        }
 			}
 		});
 		
@@ -104,6 +117,67 @@ public class EmployeeGUI {
 				Ticket result = feePaymentWindow.getProcessedTicket();
 			}
 		});
+		
+		// Generate report button
+		reportButton = new JButton("Generate Report");
+		reportButton.addActionListener(e -> {
+		    String date = JOptionPane.showInputDialog(
+		            mainFrame,
+		            "Enter report date (M/d/yyyy):",
+		            "Generate Report",
+		            JOptionPane.QUESTION_MESSAGE);
+
+		    if (date == null || date.trim().isEmpty()) {
+		        return; // user canceled or blank
+		    }
+
+		    Report report = EmployeeService.getReport(date.trim());
+		    if (report == null) {
+		        JOptionPane.showMessageDialog(
+		                mainFrame,
+		                "Could not retrieve report (server error or timeout).",
+		                "Report Error",
+		                JOptionPane.ERROR_MESSAGE);
+		        return;
+		    }
+
+		    java.util.List<Ticket> tickets = report.getTickets();
+		    if (tickets.isEmpty()) {
+		        JOptionPane.showMessageDialog(
+		                mainFrame,
+		                "No tickets found for " + report.getDate(),
+		                "Report",
+		                JOptionPane.INFORMATION_MESSAGE);
+		        return;
+		    }
+
+		    StringBuilder sb = new StringBuilder();
+		    sb.append("Report for ").append(report.getDate()).append("\n\n");
+		    for (Ticket t : tickets) {
+		        sb.append("Ticket ")
+		          .append(t.getTicketID())
+		          .append(" | Hours: ").append(t.getTotalTime())
+		          .append(" | Amount Paid: $")
+		          .append(String.format("%.2f", t.getTotalFees() / 1.0))
+		          .append(" | Paid: ").append(t.isPaid() ? "Yes" : "No")
+		          .append("\n");
+		    }
+		    
+		    EmployeeGUI.appendServerMessage(
+		    	    "Server: Generated report for " + report.getDate() +
+		    	    " (" + tickets.size() + " tickets)"
+		    	);
+
+
+		    JTextArea area = new JTextArea(sb.toString(), 15, 60);
+		    area.setEditable(false);
+		    JOptionPane.showMessageDialog(
+		            mainFrame,
+		            new JScrollPane(area),
+		            "Report for " + report.getDate(),
+		            JOptionPane.INFORMATION_MESSAGE);
+		});
+
 		
 		// Open exit gate button
 		openExitGateButton = new JButton("Open Exit Gate");
@@ -153,6 +227,7 @@ public class EmployeeGUI {
 		panel.add(inputTextPanel);
 		panel.add(openEntryGateButton);
 		panel.add(payFeesButton);
+		panel.add(reportButton);
 		panel.add(logoutButton);
 		panel.add(dateTimeLabel);
 		mainFrame.add(panel);
@@ -164,7 +239,7 @@ public class EmployeeGUI {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				LocalDateTime now = java.time.LocalDateTime.now();
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
 				String formattedDateTime = now.format(formatter);
 				dateTimeLabel.setText(formattedDateTime);
 			}

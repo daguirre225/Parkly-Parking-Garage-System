@@ -80,6 +80,18 @@ public class EmployeeService {
 			return "EmployeeService: Not connected.";
 		}
 	}
+
+	public static Report getReport(String date) {
+	    if (socket != null) {
+	        System.out.println("EmployeeService.getReport: requesting report for " + date);
+	        return socket.requestReport(date);
+	    } else {
+	        System.err.println("EmployeeService.getReport: Not connected.");
+	        return null;
+	    }
+	}
+
+
 	
 	public static void disconnect() {
 		if (socket != null) {

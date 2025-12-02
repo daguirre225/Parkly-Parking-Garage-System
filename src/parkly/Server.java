@@ -8,7 +8,8 @@ import java.util.List;
 public class Server {
 	private static int employeeCount; // keep track of how many employee 
 	private static List<Ticket> activeTickets = new ArrayList<>();
-	
+	private static SpaceTracker spaceTracker = new SpaceTracker(50); 
+	 
 	private static synchronized void increment() {employeeCount++;};
 	public static void main(String[] args) {
 		
@@ -101,9 +102,21 @@ public class Server {
 							
 								// NEW TICKET
 							} else if (this.msg.getType().equalsIgnoreCase("TICKET") && this.msg.getText().equalsIgnoreCase("GENERATE NEW TICKET")) {
+								
+								// update occupancy
+								spaceTracker.increment(); 
+								if (spaceTracker.isFull()) {
+								    System.out.println("Server.run (SPACE): LOT IS FULL!");
+								}
+
 								this.ticket = new Ticket();
 								System.out.println("Server.run (NEW TICKET):\n\tNew ticketID created: " + this.ticket.getTicketID());
 								activeTickets.add(this.ticket);
+								
+								System.out.println("Server.run (SPACE): Current spaces used: "
+							            + spaceTracker.getCurrentCount() + " / " + spaceTracker.getCapacity()
+							            + " (available: " + spaceTracker.getAvailable() + ")");
+								oos.reset();
 								oos.writeObject(this.ticket);
 								oos.flush();
 								// FIND TICKET
@@ -126,8 +139,13 @@ public class Server {
 								if (this.ticket != null) {
 									if (this.ticket.getTicketID().equalsIgnoreCase(this.msg.getText())) {
 										this.ticket.markPaid();
+										spaceTracker.decrement();
 										oos.reset();
 										System.out.println("Server.run (PAY TICKET): Ticket " + this.ticket.getTicketID() + " has been paid: " + this.ticket.isPaid());
+										System.out.println("Server.run (SPACE): Current spaces used: "
+								                    + spaceTracker.getCurrentCount() + " / " + spaceTracker.getCapacity()
+								                    + " (available: " + spaceTracker.getAvailable() + ")");
+										oos.reset();
 										oos.writeObject(this.ticket);
 										oos.flush();
 									}
@@ -136,12 +154,35 @@ public class Server {
 							} else if (this.msg.getType().equalsIgnoreCase("GATE") && this.msg.getText().equalsIgnoreCase("OPEN ENTRY GATE")) {
 								System.out.println("Server.run (OPEN ENTRY GATE):\n\tOpening front gate...");
 								
-							} else if (this.msg.getType().equalsIgnoreCase("logout") && this.msg.getText().equalsIgnoreCase("logout")){
+							 // Generate Report 
+							} else if (this.msg.getType().equalsIgnoreCase("REPORT")) {
+
+						        String reportDate = this.msg.getText(); // e.g. "12/1/2025"
+						        System.out.println("Server.run (REPORT): Generating report for " + reportDate);
+
+						        java.util.List<Ticket> reportList = new java.util.ArrayList<>();
+						        for (Ticket t : activeTickets) {
+						            if (t.getExitDate() != null
+						                    && !t.getExitDate().isEmpty()
+						                    && t.getExitDate().equals(reportDate)) {
+						                reportList.add(t);
+						            }
+						        }
+
+						        Report report = new Report(reportDate, reportList);
+						       
+						        
+						        oos.reset();
+						        oos.writeObject(report);
+						        oos.flush();
+						    }
+							else if (this.msg.getType().equalsIgnoreCase("logout") && this.msg.getText().equalsIgnoreCase("logout")){
 								this.status = "logout";
 								System.out.println("Server.run (LOGOUT):\n\tLogout received: " + msg.getText());
 								oos.writeObject(new Message("success", this.status, "CONNECTION CLOSED!"));
 								oos.flush();
-							} else {
+						        
+						    } else {
 								System.out.println("Could not capitolize message...");
 								oos.writeObject(new Message("text", "success", "Failed."));
 								oos.flush();

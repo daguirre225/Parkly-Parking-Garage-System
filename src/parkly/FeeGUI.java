@@ -235,6 +235,13 @@ public class FeeGUI extends JDialog {
 				Ticket foundTicket = get();
 				System.out.println("FeeGUI.done: received ticket: " + foundTicket.getTicketID());
 				ticket = foundTicket;
+				// Log when a ticket is found
+		        EmployeeGUI.appendServerMessage(
+		                "Server: Found ticket " + foundTicket.getTicketID()
+		                + " | Exit: " + foundTicket.getExitDate() + " " + foundTicket.getExitTime()
+		                + " | Fees due: $" + String.format("%.2f", foundTicket.getTotalFees() / 1.0)
+		            );
+		        
 				displayTicketDetails(foundTicket);
 			} catch (Exception e) {
 				String fullErrorMessage = e.getMessage();
@@ -287,6 +294,12 @@ public class FeeGUI extends JDialog {
 			try {
 				if (get()) {
 					ticket = paidTicket;
+					// Log when a payment is processed
+				     EmployeeGUI.appendServerMessage(
+				                "Server: Payment processed for ticket " + paidTicket.getTicketID()
+				                + " | Amount: $" + String.format("%.2f", amount)
+				                + " | Method: " + payType
+				            );
 					JOptionPane.showMessageDialog(FeeGUI.this, String.format("Payment of $%.2f successful via %s!", amount, payType), "Payment Success", JOptionPane.INFORMATION_MESSAGE);
 					FeeGUI.this.dispose();
 				}

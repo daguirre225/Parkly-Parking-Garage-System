@@ -22,7 +22,7 @@ public class ConnectTask extends SwingWorker<EmployeeConnection, Void> {
 		// Run socket creation in background thread to prevent freezing the GUI.
 		try {
 			// Create socket connection to server via connected network
-			EmployeeConnection connection = EmployeeService.connect("10.0.0.114", 1235); // create an EmployeeConnection object that will hold Socket + Socket to server operations
+			EmployeeConnection connection = EmployeeService.connect("localhost", 1235); // create an EmployeeConnection object that will hold Socket + Socket to server operations
 			System.out.println("ConnectTask.doInBackground:\n\tSuccess creating EmployeeConnection connection.");
 			return connection; // Send established connection to done()
 		} catch (IOException e) {
